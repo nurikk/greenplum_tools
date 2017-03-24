@@ -37,14 +37,16 @@ compressions = {
     'QUICKLZ': [1]
 }
 def out_info(best, column_info, config, original_column_info):
+    best_bage = ''
     if best:
+        best_bage = '<<<BEST COMPRESSION RATIO'
         #TODO: suggest alter table
         ALTER_SQL = """ALTER TABLE {schema}.{table} ALTER COLUM {column_name}""".format(schema=config['schema'], table=config['table'], column_name=column_info['column_name'])
-        print(ALTER_SQL)
+        # print(ALTER_SQL)
     current_bage = ''
     if original_column_info['compresslevel'] == column_info['compresslevel'] and original_column_info['compresstype'].lower() == column_info['compresstype'].lower():
         current_bage = '<<<CURRENT TYPE'
-    print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], current_bage)
+    print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], current_bage, best_bage)
 
 def bench_column(config, column):
     curr = get_cursor(config)
