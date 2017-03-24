@@ -36,12 +36,15 @@ compressions = {
     'ZLIB': [1, 5, 9],
     'QUICKLZ': [1]
 }
-def out_info(best, column_info, config):
+def out_info(best, column_info, config, original_column_info):
     if best:
         #TODO: suggest alter table
         ALTER_SQL = """ALTER TABLE {schema}.{table} ALTER COLUM {column_name}""".format(schema=config['schema'], table=config['table'], column_name=column_info['column_name'])
         print(ALTER_SQL)
-    print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'])
+    current_bage = ''
+    if original_column_info['compresslevel'] == column_info['compresslevel'] and original_column_info['compresstype'].lower() == column_info['compresstype'].lower():
+        current_bage = '<<<CURRENT TYPE'
+    print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], current_bage)
 
 def bench_column(config, column):
     curr = get_cursor(config)
@@ -80,23 +83,37 @@ def bench_column(config, column):
 
     sorted_results = sorted(results, key=lambda k: k['size'])
     for idx, row in enumerate(sorted_results):
-        out_info(idx == 0, row, config)
+        out_info(idx == 0, row, config, column)
+
+def format_col(source_col):
+    col = {
+        'column_name': source_col['column_name']
+    }
+    for opt in source_col['col_opts']:
+        [param, value] = opt.split('=')
+        col[param] = value
+    return col
+
 def make_magic(config):
     curr = get_cursor(config)
     TABLE_DESC_SQL = """
-        SELECT a.attname as column_name
+        SELECT a.attname as column_name,
+        e.attoptions col_opts
         FROM pg_attribute a
         JOIN pg_class b ON (a.attrelid = b.relfilenode)
         JOIN pg_namespace n on (n.oid = b.relnamespace)
+        LEFT OUTER JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
         WHERE
         b.relname = %(table)s
         and n.nspname = %(schema)s
         and a.attstattarget = -1
     """
     table_info = out(curr, TABLE_DESC_SQL, config)
+
+
     threads = []
     for column in table_info:
-
+        column = format_col(column)
         thread = threading.Thread(target=bench_column, args=(config, column,))
         thread.start()
         threads.append(thread)
