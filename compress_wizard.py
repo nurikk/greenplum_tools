@@ -6,7 +6,7 @@ import argparse
 from subprocess import Popen, PIPE
 from datetime import datetime
 import time
-
+import threading
 
 
 def get_cursor(config):
@@ -94,9 +94,15 @@ def make_magic(config):
         and a.attstattarget = -1
     """
     table_info = out(curr, TABLE_DESC_SQL, config)
+    threads = []
     for column in table_info:
-        #TODO: threads
-        bench_column(config, column)
+
+        thread = threading.Thread(target=bench_column, args=(config, column,))
+        thread.start()
+        threads.append(thread)
+
+        for thread in threads:
+            thread.join()
 
 
 if __name__ == "__main__":
@@ -109,7 +115,7 @@ if __name__ == "__main__":
 
     parser.add_argument("-t", "--table", type=str, help="table name", required=True)
     parser.add_argument("-s", "--schema", type=str, help="schema name", required=True)
-    parser.add_argument("-l", "--lines", type=str, help="rows to examine", default=1000)
+    parser.add_argument("-l", "--lines", type=str, help="rows to examine", default=10000000)
 
     params = parser.parse_args()
     make_magic(vars(params))
