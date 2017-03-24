@@ -32,8 +32,8 @@ RLE_COMPRESSION_MAP = {
 
 }
 compressions = {
-    'RLE_TYPE': [1, 3],
-    'ZLIB': [1],
+    'RLE_TYPE': [1, 2, 3, 4],
+    'ZLIB': [1, 5, 9],
     'QUICKLZ': [1]
 }
 def out_info(best, column_info, config):
@@ -75,7 +75,7 @@ def bench_column(config, column):
                 pg_relation_size('compres_test_table'::regclass::oid) as size
             """.format(compresstype=compresstype, compresslevel=compresslevel, column_name=column['column_name'])
             size_info = out(curr, SIZE_SQL)[0]
-            results.append(size_info)            
+            results.append(size_info)
             out(curr, 'drop table compres_test_table')
 
     sorted_results = sorted(results, key=lambda k: k['size'])
