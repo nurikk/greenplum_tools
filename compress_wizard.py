@@ -36,17 +36,21 @@ compressions = {
     'ZLIB': [1, 5, 9],
     'QUICKLZ': [1]
 }
-def out_info(best, column_info, config, original_column_info):
-    best_bage = ''
-    if best:
-        best_bage = '<<<BEST COMPRESSION RATIO'
-        #TODO: suggest alter table
-        ALTER_SQL = """ALTER TABLE {schema}.{table} ALTER COLUM {column_name}""".format(schema=config['schema'], table=config['table'], column_name=column_info['column_name'])
-        # print(ALTER_SQL)
-    current_bage = ''
-    if original_column_info['compresslevel'] == column_info['compresslevel'] and original_column_info['compresstype'].lower() == column_info['compresstype'].lower():
-        current_bage = '<<<CURRENT TYPE'
-    print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], current_bage, best_bage)
+def out_info(sorted_results, original_column_info):
+    current_column = None
+    for column_info in sorted_results:
+        if original_column_info['compresslevel'] == column_info['compresslevel'] and original_column_info['compresstype'] == column_info['compresstype'].lower():
+            current_column = column_info
+
+    print('-----', original_column_info['column_name'], '-----')
+
+    #TODO: suggest alter table alter column if it posible
+    for column_info in sorted_results:
+        if current_column:
+            diff = str(round(100.0 / current_column['size'] * column_info['size'], 2)) + ' %'
+            print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], diff)
+        else:
+            print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'])
 
 def bench_column(config, column):
     curr = get_cursor(config)
@@ -84,8 +88,7 @@ def bench_column(config, column):
             out(curr, 'drop table compres_test_table')
 
     sorted_results = sorted(results, key=lambda k: k['size'])
-    for idx, row in enumerate(sorted_results):
-        out_info(idx == 0, row, config, column)
+    out_info(sorted_results, column)
 
 def format_col(source_col):
     col = {
@@ -93,7 +96,7 @@ def format_col(source_col):
     }
     for opt in source_col['col_opts']:
         [param, value] = opt.split('=')
-        col[param] = value
+        col[param] = value.lower()
     return col
 
 def make_magic(config):
