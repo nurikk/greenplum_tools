@@ -101,8 +101,8 @@ def make_magic(config):
         thread.start()
         threads.append(thread)
 
-        for thread in threads:
-            thread.join()
+    for thread in threads:
+        thread.join()
 
 
 if __name__ == "__main__":
