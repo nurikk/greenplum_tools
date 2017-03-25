@@ -36,21 +36,27 @@ compressions = {
     'ZLIB': [1, 5, 9],
     'QUICKLZ': [1]
 }
+def is_current_compression_method(original_column_info, column_info):
+    return original_column_info['compresslevel'] == column_info['compresslevel'] and original_column_info['compresstype'] == column_info['compresstype'].lower()
+
 def out_info(sorted_results, original_column_info):
     current_column = None
     for column_info in sorted_results:
-        if original_column_info['compresslevel'] == column_info['compresslevel'] and original_column_info['compresstype'] == column_info['compresstype'].lower():
+        if is_current_compression_method(original_column_info, column_info):
             current_column = column_info
 
     print('-----', original_column_info['column_name'], '-----')
 
     #TODO: suggest alter table alter column if it posible
     for column_info in sorted_results:
+        current_text = ''
+        if  column_info == current_column:
+            current_text = '<<<CURRENT'
         if current_column:
             diff = str(round(100.0 / current_column['size'] * column_info['size'], 2)) + ' %'
-            print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], diff)
+            print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], diff, current_text)
         else:
-            print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'])
+            print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], current_text)
 
 def bench_column(config, column):
     curr = get_cursor(config)
