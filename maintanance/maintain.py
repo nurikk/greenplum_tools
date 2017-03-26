@@ -7,16 +7,11 @@ import shlex
 from subprocess import Popen, PIPE
 from datetime import datetime
 import time
+import threading
+from queue import Queue
+import logging
 
 
-filter_string_re = re.compile('^(SET|CREATE INDEX|CREATE  PROTOCOL|--|$)')
-def get_table_ddl(config):
-    cmd = 'pg_dump --host={host} --port={port} --username={user} --no-owner --no-privileges --schema-only --table={schema}.{table} {database}'.format(**config)
-    args = shlex.split(cmd)
-    proc = Popen(args, stdout=PIPE, stderr=PIPE, env={'PATH': config['root']})
-    out, err = proc.communicate()
-    out_data = list(filter(lambda st: not filter_string_re.match(st), out.decode('utf-8').split('\n')))
-    return '\n'.join(out_data).strip()
 
 def get_cursor(config):
     conn = psycopg2.connect("dbname={database} user={user} host={host} port={port}".format(**config))
@@ -24,42 +19,68 @@ def get_cursor(config):
     cursor =  conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     return cursor
 
-
-GET_INDEX_SQL = """
-    SELECT c2.relname as index_name, pg_catalog.pg_get_indexdef(i.indexrelid, 0, true) as index_def
-    FROM pg_catalog.pg_class c, pg_catalog.pg_class c2, pg_catalog.pg_index i
-    WHERE c.oid = %(table)s::regclass::oid AND c.oid = i.indrelid AND i.indexrelid = c2.oid and i.indisvalid
-    ORDER BY i.indisprimary DESC, i.indisunique DESC, c2.relname
-"""
-
-def format_seconds_to_readable_format(seconds):
-    return time.strftime("%H:%M:%S.{0}".format(round((seconds % 1)*1000)), time.gmtime(seconds))
-
 def out(cursor, sql, params = {}):
-    print(cursor.mogrify(sql, params).decode('utf-8'), end=' ', flush=True)
-    start = time.time()
     cursor.execute(sql, params)
-    print('--', format_seconds_to_readable_format(time.time() - start), cursor.statusmessage)
+    return_val = {}
+    try:
+        return_val = cursor.fetchall()
+    except psycopg2.ProgrammingError:
+        pass
+    return return_val
 
-def repack(config):
+def worker(config, q):
+    cursor = get_cursor(config)
+    while q.qsize() > 0:
+        item = q.get()
+        logging.info('Start ' + item['cmd'])
+        # out(cursor, item['cmd'])
+        logging.info('Finish ' + item['cmd'])
+        q.task_done()
 
+def run_parallel(config, commands):
+    q = Queue()
+    threads = []
+    for i in range(config['threads']):
+        t = threading.Thread(target=worker, args=(config, q))
+        t.start()
+        threads.append(t)
 
+    for item in commands:
+        q.put(item)
+    q.join()
+    for t in threads:
+        t.join()
 
-
+def vacuum_ao_tables(config):
+    GET_BLOATED_SQL="""
+        SELECT 'VACUUM' || ' ' || table_name as cmd
+    	FROM    (
+    	        SELECT n.nspname || '.' || c.relname AS table_name, (__gp_aovisimap_compaction_info(c.oid)).compaction_possible AS compaction_possible
+    	        FROM pg_appendonly a
+    	        JOIN pg_class c ON c.oid = a.relid
+    	        JOIN pg_namespace n ON c.relnamespace = n.oid
+    	        WHERE c.relkind = 'r'
+    	        AND c.reltuples > 0
+    	        ) AS sub
+    	WHERE compaction_possible
+    	GROUP BY table_name
+    """
+    tabbles_to_vacuum = out(get_cursor(config), GET_BLOATED_SQL)
+    run_parallel(config, tabbles_to_vacuum)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(threadName)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--database", type=str, help="db name", default="db")
     parser.add_argument("--host", type=str, help="hostname", default="localhost")
     parser.add_argument("--port", type=int, help="port", default=6543)
+    parser.add_argument("--threads", type=int, help="threads count", default=5)
     parser.add_argument("--user", type=str, help="username", default='gpadmin')
-    parser.add_argument("--root", type=str, help="$GPHOME/bin", default='/usr/local/greenplum-db/bin')
 
-    parser.add_argument("-t", "--table", type=str, help="table name", required=True)
-    parser.add_argument("-s", "--schema", type=str, help="schema name", required=True)
-    parser.add_argument("-o", "--order-col", type=str, help="schema name")
 
     params = parser.parse_args()
-    repack(vars(params))
+    vacuum_ao_tables(vars(params))
