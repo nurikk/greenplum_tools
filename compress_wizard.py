@@ -25,12 +25,28 @@ def out(cursor, sql, params = {}):
         pass
     return return_val
 
-RLE_COMPRESSION_MAP = {
-    'RLE_ONLY': 1,
-    'RLE_ZLIB_1': 2,
-    'RLE_ZLIB_5': 3,
-    'RLE_ZLIB_9': 4,
+#TODO: calculate weights
+QUICKLZ_1 = 1
 
+ZLIB_1 = 2
+ZLIB_5 = 3
+ZLIB_9 = 4
+
+
+RLE_TYPE_1 = 3,
+RLE_TYPE_2 = RLE_TYPE_1 + ZLIB_1
+RLE_TYPE_3 = RLE_TYPE_1 + ZLIB_5
+RLE_TYPE_4 = RLE_TYPE_1 + ZLIB_9
+
+WEIGHTS = {
+    'QUICKLZ_1': QUICKLZ_1,
+    'ZLIB_1': ZLIB_1,
+    'ZLIB_5': ZLIB_5,
+    'ZLIB_9': ZLIB_9,
+    'RLE_TYPE_1': RLE_TYPE_1,
+    'RLE_TYPE_2': RLE_TYPE_2,
+    'RLE_TYPE_3': RLE_TYPE_3,
+    'RLE_TYPE_4': RLE_TYPE_4
 }
 compressions = {
     'RLE_TYPE': [1, 2, 3, 4],
