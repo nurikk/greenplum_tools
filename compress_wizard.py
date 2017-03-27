@@ -16,6 +16,7 @@ def get_cursor(config):
     return cursor
 
 def out(cursor, sql, params = {}):
+    print(cursor.mogrify(sql, params).decode('utf-8'))
     cursor.execute(sql, params)
     return_val = {}
     try:
@@ -37,10 +38,10 @@ compressions = {
     'QUICKLZ': [1]
 }
 def is_current_compression_method(original_column_info, column_info):
-    return original_column_info['compresslevel'] == column_info['compresslevel'] and original_column_info['compresstype'] == column_info['compresstype'].lower()
+    return original_column_info.get('compresslevel', None) == column_info.get('compresslevel', None) and original_column_info.get('compresstype', '') == column_info.get('compresstype', '').lower()
 
 def out_info(sorted_results, original_column_info):
-    current_column = None
+    current_column = {'size': sorted_results[0]['size']}
     for column_info in sorted_results:
         if is_current_compression_method(original_column_info, column_info):
             current_column = column_info
@@ -100,7 +101,12 @@ def format_col(source_col):
     col = {
         'column_name': source_col['column_name']
     }
-    for opt in source_col['col_opts']:
+    opts = source_col.get('col_opts', [])
+
+    if opts is None:
+        return col
+
+    for opt in opts:
         [param, value] = opt.split('=')
         col[param] = value.lower()
     return col
@@ -109,15 +115,15 @@ def make_magic(config):
     curr = get_cursor(config)
     TABLE_DESC_SQL = """
         SELECT a.attname as column_name,
-        e.attoptions col_opts
-        FROM pg_attribute a
-        JOIN pg_class b ON (a.attrelid = b.relfilenode)
-        JOIN pg_namespace n on (n.oid = b.relnamespace)
-        LEFT OUTER JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
-        WHERE
-        b.relname = %(table)s
-        and n.nspname = %(schema)s
-        and a.attstattarget = -1
+        e.attoptions as col_opts
+        FROM pg_catalog.pg_attribute a
+        LEFT  JOIN pg_catalog.pg_attribute_encoding e ON  e.attrelid = a.attrelid AND e.attnum = a.attnum
+        LEFT JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+        LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE  a.attnum > 0
+        AND NOT a.attisdropped
+        AND c.relname = %(table)s and n.nspname = %(schema)s
+        ORDER BY a.attnum
     """
     table_info = out(curr, TABLE_DESC_SQL, config)
 
