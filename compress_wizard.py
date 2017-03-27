@@ -61,13 +61,6 @@ def out_info(sorted_results, original_column_info):
 
 def bench_column(config, column):
     curr = get_cursor(config)
-    sample_table_sql = """
-        CREATE TEMPORARY TABLE wizard_tmp
-        AS
-        SELECT * from {schema}.{table}
-        LIMIT {lines}
-    """.format(**config)
-    out(curr, sample_table_sql)
     results = []
     for compresstype, levels in compressions.items():
         for compresslevel in levels:
@@ -79,8 +72,8 @@ def bench_column(config, column):
                   compresstype={compresstype},
                   compresslevel={compresslevel}
                 )
-                AS (SELECT {column_name} from wizard_tmp)
-            """.format(compresstype=compresstype,compresslevel=compresslevel, column_name=column['column_name'])
+                AS (SELECT {column_name} from {schema}.{table})
+            """.format(compresstype=compresstype,compresslevel=compresslevel, column_name=column['column_name'], schema=config['schema'], table=config['table'])
             out(curr, SQL)
             SIZE_SQL = """
                 SELECT
