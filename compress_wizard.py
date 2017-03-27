@@ -59,7 +59,7 @@ def out_info(sorted_results, original_column_info):
         else:
             print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], current_text)
 
-def bench_column(config, column):
+def bench_column(config, column, all_results):
     curr = get_cursor(config)
     results = []
     for compresstype, levels in compressions.items():
@@ -75,24 +75,28 @@ def bench_column(config, column):
                 AS (SELECT {column_name} from {schema}.{table} LIMIT {lines})
             """.format(compresstype=compresstype,compresslevel=compresslevel, column_name=column['column_name'], schema=config['schema'], table=config['table'], lines=config['lines'])
             out(curr, SQL)
+
             SIZE_SQL = """
                 SELECT
                 '{column_name}' as column_name,
                 '{compresslevel}' as compresslevel,
                 '{compresstype}' as compresstype,
                 pg_size_pretty(pg_relation_size('compres_test_table'::regclass::oid)) as size_h,
+                '{attnum}' as attnum,
                 pg_relation_size('compres_test_table'::regclass::oid) as size
-            """.format(compresstype=compresstype, compresslevel=compresslevel, column_name=column['column_name'])
+            """.format(compresstype=compresstype, compresslevel=compresslevel, column_name=column['column_name'], attnum=column['attnum'])
             size_info = out(curr, SIZE_SQL)[0]
             results.append(size_info)
             out(curr, 'drop table compres_test_table')
 
     sorted_results = sorted(results, key=lambda k: k['size'])
     out_info(sorted_results, column)
+    all_results.append(results)
 
 def format_col(source_col):
     col = {
-        'column_name': source_col['column_name']
+        'column_name': source_col['column_name'],
+        'attnum': source_col['attnum']
     }
     opts = source_col.get('col_opts', [])
 
@@ -108,7 +112,8 @@ def make_magic(config):
     curr = get_cursor(config)
     TABLE_DESC_SQL = """
         SELECT a.attname as column_name,
-        e.attoptions as col_opts
+        e.attoptions as col_opts,
+        a.attnum as attnum
         FROM pg_catalog.pg_attribute a
         LEFT  JOIN pg_catalog.pg_attribute_encoding e ON  e.attrelid = a.attrelid AND e.attnum = a.attnum
         LEFT JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
@@ -122,15 +127,50 @@ def make_magic(config):
 
 
     threads = []
+    results = []
     for column in table_info:
         column = format_col(column)
-        thread = threading.Thread(target=bench_column, args=(config, column,))
+        thread = threading.Thread(target=bench_column, args=(config, column, results,))
         thread.start()
         threads.append(thread)
 
     for thread in threads:
         thread.join()
 
+    sorted_as_source_table = sorted(results, key=lambda k: k[0]['attnum'])
+
+    column_sqls = []
+    for column_info in sorted_as_source_table:
+        #TODO: chose compression by smart formula
+        sql = 'COLUMN {column_name} ENCODING (compresstype={compresstype}, COMPRESSLEVEL={compresslevel})'.format(**column_info[0]) #chose best, need model
+        column_sqls.append(sql)
+
+    #TODO: create indexes if present
+    SUGGESTED_SQL = """
+        SET search_path TO {schema};
+
+        CREATE TABLE {table}_new_type (
+          LIKE {table},
+          {columns}
+        )
+        WITH (
+          appendonly=true,
+          orientation=column,
+          compresstype=RLE_TYPE,
+          COMPRESSLEVEL=3
+        );
+        INSERT INTO {table}_new_type SELECT * FROM {table};
+        ANALYZE {table}_new_type;
+
+
+        --CHECK INDEXES
+        BEGIN;
+        ALTER TABLE {table} RENAME TO {table}_old;
+        ALTER TABLE {table}_new_type RENAME TO {table};
+        COMMIT;
+
+    """.format(schema=config['schema'], table=config['table'], columns=',\n'.join(column_sqls))
+    print(SUGGESTED_SQL)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
