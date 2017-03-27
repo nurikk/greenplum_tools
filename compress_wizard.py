@@ -72,8 +72,8 @@ def bench_column(config, column):
                   compresstype={compresstype},
                   compresslevel={compresslevel}
                 )
-                AS (SELECT {column_name} from {schema}.{table})
-            """.format(compresstype=compresstype,compresslevel=compresslevel, column_name=column['column_name'], schema=config['schema'], table=config['table'])
+                AS (SELECT {column_name} from {schema}.{table} LIMIT {lines})
+            """.format(compresstype=compresstype,compresslevel=compresslevel, column_name=column['column_name'], schema=config['schema'], table=config['table'], lines=config['lines'])
             out(curr, SQL)
             SIZE_SQL = """
                 SELECT
