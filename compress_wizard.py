@@ -16,7 +16,7 @@ def get_cursor(config):
     return cursor
 
 def out(cursor, sql, params = {}):
-    print(cursor.mogrify(sql, params).decode('utf-8'))
+    # print(cursor.mogrify(sql, params).decode('utf-8'))
     cursor.execute(sql, params)
     return_val = {}
     try:
