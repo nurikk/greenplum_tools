@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--database", type=str, help="db name", default="db")
     parser.add_argument("--host", type=str, help="hostname", default="localhost")
-    parser.add_argument("--port", type=int, help="port", default=6543)
+    parser.add_argument("--port", type=int, help="port", default=5432)
     parser.add_argument("--user", type=str, help="username", default='gpadmin')
 
     parser.add_argument("-t", "--table", type=str, help="table name", required=True)
