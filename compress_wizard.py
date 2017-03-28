@@ -124,6 +124,10 @@ def format_col(source_col):
         col[param] = value.lower()
     return col
 
+#chose best, need model
+def get_best_column_format(column_info):
+    return column_info[0]
+
 def make_magic(config):
     curr = get_cursor(config)
     TABLE_DESC_SQL = """
@@ -158,7 +162,8 @@ def make_magic(config):
     column_sqls = []
     for column_info in sorted_as_source_table:
         #TODO: chose compression by smart formula
-        sql = 'COLUMN {column_name} ENCODING (compresstype={compresstype}, COMPRESSLEVEL={compresslevel})'.format(**column_info[0]) #chose best, need model
+        best_colum_format = get_best_column_format(column_info)
+        sql = 'COLUMN {column_name} ENCODING (compresstype={compresstype}, COMPRESSLEVEL={compresslevel})'.format(**best_colum_format)
         column_sqls.append(sql)
 
     #TODO: create indexes if present
