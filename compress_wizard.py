@@ -33,7 +33,7 @@ ZLIB_5 = 3
 ZLIB_9 = 4
 
 
-RLE_TYPE_1 = 3,
+RLE_TYPE_1 = 3
 RLE_TYPE_2 = RLE_TYPE_1 + ZLIB_1
 RLE_TYPE_3 = RLE_TYPE_1 + ZLIB_5
 RLE_TYPE_4 = RLE_TYPE_1 + ZLIB_9
@@ -56,7 +56,8 @@ compressions = {
 def is_current_compression_method(original_column_info, column_info):
     return original_column_info.get('compresslevel', None) == column_info.get('compresslevel', None) and original_column_info.get('compresstype', '') == column_info.get('compresstype', '').lower()
 
-def out_info(sorted_results, original_column_info):
+def out_info(results, original_column_info):
+    sorted_results = sorted(results, key=lambda k: k['size'])
     current_column = {'size': sorted_results[0]['size']}
     for column_info in sorted_results:
         if is_current_compression_method(original_column_info, column_info):
@@ -105,8 +106,8 @@ def bench_column(config, column, all_results):
             results.append(size_info)
             out(curr, 'drop table compres_test_table')
 
-    sorted_results = sorted(results, key=lambda k: k['size'])
-    out_info(sorted_results, column)
+
+    out_info(results, column)
     all_results.append(results)
 
 def format_col(source_col):
@@ -126,7 +127,17 @@ def format_col(source_col):
 
 #chose best, need model
 def get_best_column_format(column_info):
-    return column_info[0]
+    sorted_results = sorted(column_info, key=lambda k: k['size'])
+    best  = sorted_results[0] #first is the best
+    competitors = []
+    tradeoff_treshold = 0.9
+    for column_info in sorted_results[1:]:
+        if best['size'] / column_info['size'] >= tradeoff_treshold:
+            comp_key = '{compresstype}_{compresslevel}'.format(**column_info)
+            column_info['weight'] = WEIGHTS.get(comp_key, 5)
+            competitors.append(column_info)
+    sorted_competitors_by_cost = sorted(competitors, key=lambda k: k['weight'])
+    return sorted_competitors_by_cost[0]
 
 def make_magic(config):
     curr = get_cursor(config)
