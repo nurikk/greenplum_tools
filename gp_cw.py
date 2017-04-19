@@ -6,7 +6,7 @@ import argparse
 from subprocess import Popen, PIPE
 from datetime import datetime
 import time
-import threading
+from multiprocessing.dummy import Pool
 
 
 def get_cursor(config):
@@ -76,7 +76,7 @@ def out_info(results, original_column_info):
         else:
             print('--', column_info['column_name'], column_info['compresstype'], column_info['compresslevel'], column_info['size_h'], current_text)
 
-def bench_column(config, column, all_results):
+def bench_column(config, column):
     curr = get_cursor(config)
     results = []
     for compresstype, levels in compressions.items():
@@ -108,7 +108,7 @@ def bench_column(config, column, all_results):
 
 
     out_info(results, column)
-    all_results.append(results)
+    return results
 
 def format_col(source_col):
     col = {
@@ -156,18 +156,13 @@ def make_magic(config):
     """
     table_info = out(curr, TABLE_DESC_SQL, config)
 
+    thread_params = []
 
-    threads = []
-    results = []
     for column in table_info:
         column = format_col(column)
-        thread = threading.Thread(target=bench_column, args=(config, column, results,))
-        thread.start()
-        threads.append(thread)
+        thread_params.append((config, column))
 
-    for thread in threads:
-        thread.join()
-
+    results = Pool(config['threads']).starmap(bench_column, thread_params)
     sorted_as_source_table = sorted(results, key=lambda k: k[0]['attnum'])
 
     column_sqls = []
@@ -215,6 +210,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--table", type=str, help="table name", required=True)
     parser.add_argument("-s", "--schema", type=str, help="schema name", required=True)
     parser.add_argument("-l", "--lines", type=str, help="rows to examine", default=10000000)
+    parser.add_argument("--threads", type=int, help="number of threads to run bench func", default=5)
 
     params = parser.parse_args()
     make_magic(vars(params))
