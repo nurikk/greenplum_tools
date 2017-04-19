@@ -117,10 +117,7 @@ def analyze_missing_stats_tables(config):
 
 
 def vacuum_vacuum_freeze_min_age(config):
-    print("*******************************************************************************************")
-    print("** VACUUM all tables near the vacuum_freeze_min_age to prevent transaction wraparound    **")
-    print("*******************************************************************************************")
-
+    logging.info("VACUUM all tables near the vacuum_freeze_min_age to prevent transaction wraparound")
     SQL = """
         SELECT 'VACUUM  ' || n.nspname || '.' || c.relname as cmd
         FROM pg_class c
