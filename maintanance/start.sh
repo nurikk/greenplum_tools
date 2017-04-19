@@ -9,6 +9,5 @@ trap 'err_report $LINENO' ERR
 source /home/gpadmin/setup.sh
 gpstop -a -M fast
 gpstart -a -R
-./remove_orphaned_tables.sh
-./maintanance.sh
+python3 maintain.py
 gpstop -r -a -M fast
