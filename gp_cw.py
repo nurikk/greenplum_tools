@@ -10,7 +10,7 @@ from multiprocessing.dummy import Pool
 
 
 def get_cursor(config):
-    conn = psycopg2.connect("dbname={database} user={user} host={host} port={port}".format(**config))
+    conn = psycopg2.connect("dbname={database} user={user} host={host} port={port} password={password}".format(**config))
     conn.autocommit = False
     cursor =  conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     return cursor
@@ -206,6 +206,7 @@ if __name__ == "__main__":
     parser.add_argument("--host", type=str, help="hostname", default="localhost")
     parser.add_argument("--port", type=int, help="port", default=5432)
     parser.add_argument("--user", type=str, help="username", default='gpadmin')
+    parser.add_argument("--password", type=str, help="password")
 
     parser.add_argument("-t", "--table", type=str, help="table name", required=True)
     parser.add_argument("-s", "--schema", type=str, help="schema name", required=True)
