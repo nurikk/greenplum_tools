@@ -126,13 +126,12 @@ def format_col(source_col):
     return col
 
 #chose best, need model
-def get_best_column_format(column_info):
+def get_best_column_format(column_info, config):
     sorted_results = sorted(column_info, key=lambda k: k['size'])
     best  = sorted_results[0] #first is the best
     competitors = []
-    tradeoff_treshold = 0.9
     for column_info in sorted_results[1:]:
-        if best['size'] / column_info['size'] >= tradeoff_treshold:
+        if 100 * best['size'] / column_info['size'] >= config['tradeoff_treshold']:
             comp_key = '{compresstype}_{compresslevel}'.format(**column_info)
             column_info['weight'] = WEIGHTS.get(comp_key, 5)
             competitors.append(column_info)
@@ -168,7 +167,7 @@ def make_magic(config):
     column_sqls = []
     for column_info in sorted_as_source_table:
         #TODO: chose compression by smart formula
-        best_colum_format = get_best_column_format(column_info)
+        best_colum_format = get_best_column_format(column_info, config)
         sql = 'COLUMN {column_name} ENCODING (compresstype={compresstype}, COMPRESSLEVEL={compresslevel})'.format(**best_colum_format)
         column_sqls.append(sql)
 
@@ -212,6 +211,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--schema", type=str, help="schema name", required=True)
     parser.add_argument("-l", "--lines", type=str, help="rows to examine", default=10000000)
     parser.add_argument("--threads", type=int, help="number of threads to run bench func", default=5)
+    parser.add_argument("--tradeoff_treshold", type=int, help="compaction treshhold tradeofff %", default=90, choices=range(1, 100))
 
     params = parser.parse_args()
     make_magic(vars(params))
