@@ -135,8 +135,8 @@ def get_best_column_format(column_info, config):
             comp_key = '{compresstype}_{compresslevel}'.format(**column_info)
             column_info['weight'] = WEIGHTS.get(comp_key, 5)
             competitors.append(column_info)
-    sorted_competitors_by_cost = sorted(competitors, key=lambda k: k['weight'])
-    return sorted_competitors_by_cost[0]
+    sorted_competitors_by_cost = sorted(competitors, key=lambda k: k['weight'])    
+    return sorted_competitors_by_cost[0] if len(sorted_competitors_by_cost) else best
 
 def make_magic(config):
     curr = get_cursor(config)
